@@ -29,6 +29,7 @@ contract LikeCrowdsale is HasOperator {
     uint public end = 0;
     uint256 public coinsPerEth = 0;
     uint256 public referrerBonusPercent = 0;
+    address public referrerBonusSource = 0x0;
 
     mapping (address => bool) public kycDone;
     mapping (address => address) public referrer;
@@ -44,9 +45,10 @@ contract LikeCrowdsale is HasOperator {
     event LikeTransfer(address indexed _to, uint256 _value);
     event Finalize();
 
-    function LikeCrowdsale(address _likeAddr, uint _start, uint _end, uint256 _coinsPerEth, uint8 _referrerBonusPercent) public {
+    function LikeCrowdsale(address _likeAddr, uint _start, uint _end, uint256 _coinsPerEth, uint8 _referrerBonusPercent, address _referrerBonusSource) public {
         require(_coinsPerEth != 0);
         require(_referrerBonusPercent != 0);
+        require(_referrerBonusSource != 0x0);
         require(now < _start);
         require(_start < _end);
         owner = msg.sender;
@@ -55,6 +57,7 @@ contract LikeCrowdsale is HasOperator {
         end = _end;
         coinsPerEth = _coinsPerEth;
         referrerBonusPercent = _referrerBonusPercent;
+        referrerBonusSource = _referrerBonusSource;
     }
 
     function changePrice(uint256 _newCoinsPerEth) onlyOwner public {
@@ -88,6 +91,12 @@ contract LikeCrowdsale is HasOperator {
         RegisterReferrer(_addr, _referrer);
     }
 
+    function setReferrerBonusSource(address _referrerBonusSource) onlyOwner public {
+        require(referrerBonusSource != _referrerBonusSource);
+        require(like.allowance(_referrerBonusSource, this) > 0);
+        referrerBonusSource = _referrerBonusSource;
+    }
+
     function () public payable {
         require(now >= start);
         require(now < end);
@@ -99,7 +108,7 @@ contract LikeCrowdsale is HasOperator {
         Purchase(msg.sender, msg.value, coins);
         if (referrer[msg.sender] != 0x0) {
             uint256 bonus = coins.mul(referrerBonusPercent).div(100);
-            like.transfer(referrer[msg.sender], bonus);
+            like.transferFrom(referrerBonusSource, referrer[msg.sender], bonus);
             ReferrerBonus(referrer[msg.sender], msg.sender, bonus);
         }
     }
